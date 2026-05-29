@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Special Delivery</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background: #f5f0ff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .brand { font-size: 12px; color: #888; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 2rem; }
+  .card-wrap { background: #fff; border: 1px solid #e8e4f0; border-radius: 16px; padding: 2rem; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(83,74,183,0.08); }
+  .badge { display: inline-block; background: #EEEDFE; color: #3C3489; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 14px; border-radius: 20px; margin-bottom: 1.5rem; }
+  .title { font-size: 20px; font-weight: 600; color: #1a1a2e; margin-bottom: 0.5rem; line-height: 1.4; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 1.75rem; line-height: 1.6; }
+
+  /* Scratch container */
+  .scratch-container {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: crosshair;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Reward layer — hidden until tap */
+  .reward-layer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #EEEDFE, #d8d3f8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    gap: 6px;
+  }
+
+  .reward-emoji {
+    font-size: 28px;
+    opacity: 0;
+  }
+  .reward-emoji.animate { animation: popIn 0.5s ease 0s forwards; }
+
+  .reward-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #3C3489;
+    opacity: 0;
+  }
+  .reward-title.animate { animation: fadeUp 0.6s ease 0.3s forwards; }
+
+  .reward-sub {
+    font-size: 12px;
+    color: #534AB7;
+    line-height: 1.5;
+    opacity: 0;
+  }
+  .reward-sub.animate { animation: fadeUp 0.6s ease 0.55s forwards; }
+
+  .music-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(83,74,183,0.12);
+    border-radius: 30px;
+    padding: 5px 12px;
+    opacity: 0;
+    margin-top: 4px;
+  }
+  .music-pill.animate { animation: popIn 0.5s ease 0.8s forwards; }
+
+  .music-note { font-size: 13px; animation: bounce 0.8s infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+  .music-name { font-size: 11px; font-weight: 600; color: #3C3489; }
+
+  @keyframes fadeUp {
+    0%   { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes popIn {
+    0%   { opacity: 0; transform: scale(0.75); }
+    70%  { transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    touch-action: none;
+  }
+
+  .hint { font-size: 12px; color: #aaa; margin-bottom: 1.25rem; }
+
+  .tap-btn {
+    display: none;
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, #534AB7, #7B6FD4);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(83,74,183,0.3);
+    transition: transform 0.1s;
+  }
+  .tap-btn:active { transform: scale(0.97); }
+
+  .divider { border: none; border-top: 1px solid #f0eef8; margin: 0 0 1rem; display: none; }
+
+  .revealed-buttons { display: none; gap: 10px; }
+  .revealed-buttons.show { display: flex; }
+  .btn { flex: 1; padding: 11px 0; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid #ddd; background: transparent; color: #333; transition: background 0.15s; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-yes { background: #534AB7; color: #fff; border-color: #534AB7; }
+  .btn-yes:hover { background: #3C3489; }
+
+  .response-msg { display: none; font-size: 15px; line-height: 1.6; padding: 1rem; border-radius: 10px; margin-top: 1rem; opacity: 0; }
+  .response-msg.show { display: block; animation: fadeUp 0.6s ease forwards; }
+
+  .footer-text { font-size: 12px; color: #bbb; line-height: 1.6; margin-top: 1rem; display: none; }
+
+  .hearts { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 999; display: none; }
+  .heart { position: absolute; animation: floatUp 2.5s ease-in forwards; bottom: -50px; }
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+    100% { opacity: 0; transform: translateY(-100vh) rotate(20deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="hearts" id="hearts"></div>
+<p class="brand">A special delivery</p>
+
+<div class="card-wrap">
+  <span class="badge">You have won</span>
+  <h1 class="title">Something special is waiting for you</h1>
+  <p class="subtitle">Scratch the card below to reveal your prize</p>
+
+  <div class="scratch-container" id="scratchContainer">
+    <!-- Reward content inside the box -->
+    <div class="reward-layer" id="rewardLayer">
+      <div class="reward-emoji" id="rewardEmoji">🌹</div>
+      <div class="reward-title" id="rewardTitle">Congratulations, Sowmiya!</div>
+      <div class="reward-sub" id="rewardSub">You've been asked out on a date.<br>Dinner, good company & a beautiful evening.</div>
+      <div class="music-pill" id="musicPill">
+        <span class="music-note" id="musicNote">🎵</span>
+        <span class="music-name" id="musicName">Sandhipoma · A.R. Rahman</span>
+      </div>
+    </div>
+    <canvas id="scratchCanvas"></canvas>
+  </div>
+
+  <p class="hint" id="hintText">✦ Scratch to reveal your prize ✦</p>
+  <button class="tap-btn" id="tapBtn" onclick="tapReveal()">✨ Tap to know your prize</button>
+
+  <hr class="divider" id="divider">
+
+  <div class="revealed-buttons" id="revealedButtons">
+    <button class="btn btn-yes" onclick="respond(true)">Yes, I'd love to ✨</button>
+    <button class="btn" onclick="respond(false)">Maybe next time</button>
+  </div>
+
+  <div class="response-msg" id="responseMsg"></div>
+  <p class="footer-text" id="footerText">This offer is valid for one evening only.<br>Happiness guaranteed.</p>
+</div>
+
+<audio id="audioPlayer" preload="auto"></audio>
+
+<script>
+const canvas = document.getElementById('scratchCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('scratchContainer');
+const hintText = document.getElementById('hintText');
+const tapBtn = document.getElementById('tapBtn');
+const revealedButtons = document.getElementById('revealedButtons');
+const audioPlayer = document.getElementById('audioPlayer');
+const divider = document.getElementById('divider');
+const hearts = document.getElementById('hearts');
+const musicName = document.getElementById('musicName');
+const musicNote = document.getElementById('musicNote');
+
+let isScratching = false;
+let revealed = false;
+
+const songs = {
+  scratch: { src: 'song1.mp3', name: 'Sandhipoma · A.R. Rahman', emoji: '🎵' },
+  yes:     { src: 'song2.mp3', name: 'Hosanna · A.R. Rahman',    emoji: '🎉' },
+  no:      { src: 'song3.mp3', name: 'Ena Solla Pogirai · A.R. Rahman', emoji: '🌧️' }
+};
+
+function playMusic(type) {
+  const s = songs[type];
+  audioPlayer.src = s.src;
+  audioPlayer.play();
+  musicName.textContent = s.name;
+  musicNote.textContent = s.emoji;
+}
+
+function launchHearts() {
+  hearts.style.display = 'block';
+  const emojis = ['🌹','✨','💜','🎊','💫','🌸'];
+  for (let i = 0; i < 20; i++) {
+    const el = document.createElement('div');
+    el.className = 'heart';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.animationDelay = (Math.random() * 1.5) + 's';
+    el.style.fontSize = (16 + Math.random() * 18) + 'px';
+    hearts.appendChild(el);
+  }
+  setTimeout(() => { hearts.style.display = 'none'; hearts.innerHTML = ''; }, 4000);
+}
+
+function tapReveal() {
+  tapBtn.style.display = 'none';
+  playMusic('scratch');
+
+  // Animate content inside the box simultaneously
+  setTimeout(() => {
+    document.getElementById('rewardEmoji').classList.add('animate');
+    document.getElementById('rewardTitle').classList.add('animate');
+    document.getElementById('rewardSub').classList.add('animate');
+    document.getElementById('musicPill').classList.add('animate');
+  }, 30);
+
+  setTimeout(() => {
+    divider.style.display = 'block';
+    revealedButtons.classList.add('show');
+    document.getElementById('footerText').style.display = 'block';
+  }, 1600);
+}
+
+function respond(yes) {
+  revealedButtons.classList.remove('show');
+  audioPlayer.pause();
+  audioPlayer.currentTime = 0;
+  const msg = document.getElementById('responseMsg');
+  msg.classList.add('show');
+  if (yes) {
+    playMusic('yes');
+    launchHearts();
+    msg.innerHTML = '🌙 &nbsp;I\'m so glad. I promise you a beautiful evening. Can\'t wait to see you. 🙂';
+    msg.style.background = '#EEEDFE';
+    msg.style.color = '#3C3489';
+  } else {
+    playMusic('no');
+    msg.style.background = '#f5f5f5';
+    msg.style.color = '#555';
+    msg.innerHTML = 'No worries at all. The offer stays open whenever you\'re ready. 🙂';
+  }
+}
+
+function resize() {
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  drawScratchLayer();
+}
+
+function drawScratchLayer() {
+  ctx.fillStyle = '#AFA9EC';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#7F77DD';
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 35 + 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '14px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('✦  Scratch here  ✦', canvas.width / 2, canvas.height / 2 - 8);
+  ctx.fillText('Use your finger or mouse', canvas.width / 2, canvas.height / 2 + 16);
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+function scratch(x, y) {
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.fill();
+  checkReveal();
+}
+
+function checkReveal() {
+  if (revealed) return;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let cleared = 0;
+  for (let i = 3; i < data.length; i += 4) { if (data[i] < 128) cleared++; }
+  if (cleared / (canvas.width * canvas.height) > 0.45) revealFully();
+}
+
+function revealFully() {
+  revealed = true;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hintText.style.display = 'none';
+  tapBtn.style.display = 'block';
+}
+
+canvas.addEventListener('mousedown', e => { isScratching = true; const p = getPos(e); scratch(p.x, p.y); });
+canvas.addEventListener('mousemove', e => { if (isScratching) { const p = getPos(e); scratch(p.x, p.y); } });
+canvas.addEventListener('mouseup', () => isScratching = false);
+canvas.addEventListener('mouseleave', () => isScratching = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); isScratching = true; const p = getPos(e); scratch(p.x, p.y); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (isScratching) { const p = getPos(e); scratch(p.x, p.y); } }, { passive: false });
+canvas.addEventListener('touchend', () => isScratching = false);
+
+resize();
+window.addEventListener('resize', resize);
+</script>
+</body>
+</html>
